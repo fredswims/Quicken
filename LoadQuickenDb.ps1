@@ -1,5 +1,5 @@
-Set-PSDebug -strict -trace 2
-($ThisVersion="V2.15.1")
+﻿#Set-PSDebug -strict -trace 2
+($ThisVersion="V2.15.2")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -25,7 +25,7 @@ Mod 2018-05-24 'Loop on Read-Host
 2019-04-09 FAJ V2.15
     Are we running CORE?
     using if ($psversiontable.psedition -ne "CORE") but this may change in the future when Powershell is renamed.
-    Perhaps the executable name should be tested.    
+    Perhaps the executable name should be tested.
     Then
         Cannot set $bSayit to $true
         Cannot load [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($DestinationPath, 'OnlyErrorDialogs', 'SendToRecycleBin')
@@ -137,7 +137,7 @@ Try {
             $SayIt = "Quicken"
             $SayIt = "$env:USERNAME     you are invoking Quicken"
             #$oSynth.SpeakAsync($SayIt)
-        } 
+        }
         else {[bool]$bSayit = $false}
         #Set-PSDebug -Step
         #$SayIt = "Data file is $($Filename.split(".")[0]) "
@@ -206,7 +206,7 @@ Try {
         if ($?){"{0} completed" -f $thisCmd}
     }
 
-    "Launch Quicken by referencing the data file on the desktop"
+    "Launch Quicken by referencing the data file in $DestinationPath"
     $ExitCode = 1
     do {
         #$LastExitCode = 0
