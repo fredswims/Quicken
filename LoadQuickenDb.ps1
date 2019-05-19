@@ -1,5 +1,5 @@
 ﻿#Set-PSDebug -strict -trace 2
-($ThisVersion="V2.15.2")
+($ThisVersion="V2.15.3")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -257,11 +257,11 @@ Try {
     Do { $MyResponse = Read-host "Move $Filename to reposity [y(es)/n(o)]"}
     while ("y", "n" -notcontains $MyResponse)
     #$MyResponse = read-host "Move $Filename to reposity [y(es)/n(o)]"
-    if ( $MyResponse.tolower() -eq "y") {
+    if ($MyResponse.tolower() -eq "y") {
         $Sayit = "Moving '$Filename' to the repository "
         if ($bSayIt) {$oSynth.SpeakAsync($SayIt)}
         move-Item $DestinationPath $SourceDir -force
-        write-host  -foregroundColor Yellow $Sayit
+        write-host  -foregroundColor Yellow "$($Sayit) at $(Get-Date) " # "V2.15.3"
         [console]::beep($ToneGood, 500)
     }
     else {
@@ -271,7 +271,7 @@ Try {
         #$MyResponse = read-host "Move $($Filename.basename) to the recycle-bin? [y(es)/n(o)]"
         if ( $MyResponse.tolower() -eq "y") {
             $SayIt = "MOVING $($Filename.basename) to the recycle-bin  "
-            write-host  -foregroundColor Yellow $SayIt
+            write-host  -foregroundColor Yellow "$SayIt at $(Get-Date) " # "V2.15.3"
             if ($bSayIt) {$oSynth.Speak($SayIt)}
 
             if ($psversiontable.psedition -ne "CORE") {
