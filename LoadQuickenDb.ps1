@@ -15,10 +15,10 @@
     write-host "the value of Speak is $Speak"
 <#
 Invoke like;
-powershell.exe -noprofile -file $runThis  -Filename "Home.qdf" -Speak
+powershell.exe -noprofile -file (join-path (resolve-path dropbox).path -ChildPath \Private\Q\LoadQuickenDb1.ps1) -Filename "Home.qdf" -Speak
 #>
 if ($DebugMessages){Set-PSDebug -strict -trace 2}
-($ThisVersion="V3.0.0")
+($ThisVersion="V3.0.1")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -122,7 +122,7 @@ $ToneBad = 100
 $ToneDuration = 500
 
 Try {
-    if ( (get-process "qw"-ErrorAction SilentlyContinue) -ne $null ) { write-host -ForegroundColor Red "Quicken is running"; read-host "press RETURN to exit"; exit }
+    if ( (get-process "qw"-ErrorAction SilentlyContinue).count -gt 0 ) { write-host -ForegroundColor Red "Quicken is running"; read-host "press RETURN to exit"; exit }
 
     if ($speak -and $psversiontable.psedition -ne "CORE") {
         [bool]$bSayit = $true
