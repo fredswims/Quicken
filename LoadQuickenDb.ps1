@@ -1,5 +1,24 @@
-﻿#Set-PSDebug -strict -trace 2
-($ThisVersion="V2.15.3")
+﻿param ([Parameter(Mandatory = $true,
+    HelpMessage = "Enter the name of the Quicken data file; e.g., Home.qdf : ")]
+    [System.IO.FileInfo]
+    $FileName,
+
+    [Parameter(Mandatory = $false)]
+    [Switch]
+    $Speak,
+
+    [Parameter(Mandatory = $false)]
+    [Switch]
+    $DebugMessages)
+
+    write-host "the value of Filename is $Filename"
+    write-host "the value of Speak is $Speak"
+<#
+Invoke like;
+powershell.exe -noprofile -file $runThis  -Filename "Home.qdf" -Speak
+#>
+if ($DebugMessages){Set-PSDebug -strict -trace 2}
+($ThisVersion="V3.0.0")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -29,6 +48,12 @@ Mod 2018-05-24 'Loop on Read-Host
     Then
         Cannot set $bSayit to $true
         Cannot load [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($DestinationPath, 'OnlyErrorDialogs', 'SendToRecycleBin')
+
+2019-05-31 FAJ V3.0.0
+    Added params to this script.
+    It should be called like this
+    powershell.exe -noprofile -file $FullPathToScriptFile -Filename DataFileLikeHOME.QDF -Speak
+    *** We assume the DataFile is in the folder (the REPOSITORY) where the script resides.
 #>
 
 <#
@@ -91,85 +116,33 @@ $MyInvocation
 $MyInvocation.MyCommand.path
 #Set-PSDebug -Step
 
-[bool]$TestMode=$false
-#if ($MyInvocation.CommandOrigin -eq "Runspace") {$TestMode = $false}
-#if ($MyInvocation.CommandOrigin -eq "Internal") {$TestMode = $true} #if debugging in VSCode - can't use this because you can pass parameters in the debugger.
-
-[bool]$bSayit = $True #Only effective if $TestMode=$True
 
 $ToneGood = 500
 $ToneBad = 100
 $ToneDuration = 500
 
 Try {
-    <#
-    add-type -assemblyname system.speech
-    #https://msdn.microsoft.com/en-us/library/system.speech.synthesis.speechsynthesizer(v=vs.110).aspx
-    $oSynth = New-Object -TypeName System.Speech.Synthesis.SpeechSynthesizer
-    $oSynth.rate = 3 # range -10 to 10
-    $SayIt = "Quicken"
-    $SayIt = "$env:USERNAME     you are invoking Quicken"
-    #$oSynth.SpeakAsync($SayIt)
-    #>
+    if ( (get-process "qw"-ErrorAction SilentlyContinue) -ne $null ) { write-host -ForegroundColor Red "Quicken is running"; read-host "press RETURN to exit"; exit }
 
-    #Is Quicken running?
-    #$ProcessActive=get-process "qw"-ErrorAction SilentlyContinue
-    #if ($ProcessActive.ProcessName -eq "qw" ){write-host -ForegroundColor Red "Quicken is running";read-host "enter anything to exit";exit}
-    #ANOTHER WAY TO SAY IT IN ONE LINE
-    if ((get-process "qw"-ErrorAction SilentlyContinue) -ne $null) {write-host -ForegroundColor Red "Quicken is running"; read-host "press RETURN to exit"; exit}
-
-    #region ArgumentCount
-    "Arg count is {0}" -f $args.count
-    #$temp="Arg count is {0}" -f $args.count
-    #Read-host "$temp"
-    foreach ($arg in $args) {"arg: {0}" -f $arg}
-
-    If (!($TestMode)) {
-        if ($args.count -ne 2) {read-host "You must supply 2 arguments; data file name and '-Speak' | '-Silent'"; exit}
-        #[string]$FileName = $args[0] #cast the arg into a string!!!
-        [System.IO.FileInfo]$FileName = $args[0]
-        if ($args[1] -eq "-Speak" -and $psversiontable.psedition -ne "CORE") {
-            [bool]$bSayit = $true
-            add-type -assemblyname system.speech
-            #https://msdn.microsoft.com/en-us/library/system.speech.synthesis.speechsynthesizer(v=vs.110).aspx
-            $oSynth = New-Object -TypeName System.Speech.Synthesis.SpeechSynthesizer
-            $oSynth.rate = 3 # range -10 to 10
-            $SayIt = "Quicken"
-            $SayIt = "$env:USERNAME     you are invoking Quicken"
-            #$oSynth.SpeakAsync($SayIt)
-        }
-        else {[bool]$bSayit = $false}
-        #Set-PSDebug -Step
-        #$SayIt = "Data file is $($Filename.split(".")[0]) "
-        $SayIt = "Using {0}" -f $Filename.BaseName
-        write-host -ForegroundColor yellow $SayIt
-        if ($bSayIt) {$oSynth.SpeakAsync($SayIt)}
+    if ($speak -and $psversiontable.psedition -ne "CORE") {
+        [bool]$bSayit = $true
+        #https://msdn.microsoft.com/en-us/library/system.speech.synthesis.speechsynthesizer(v=vs.110).aspx
+        add-type -assemblyname system.speech
+        $oSynth = New-Object -TypeName System.Speech.Synthesis.SpeechSynthesizer
+        $oSynth.rate = 3 # range -10 to 10
+        $SayIt = "Quicken"
+        $SayIt = "$env:USERNAME     you are invoking Quicken"
+        #$oSynth.SpeakAsync($SayIt)
     }
-    else {
-        # Testing - supply a name.
-        [System.IO.FileInfo]$FileName = "home.qdf"
-        $SayIt = "Running in Test Mode with $Filename"
-        if ($bSayIt) {$oSynth.SpeakAsync($SayIt)}
-        Write-Host $SayIt
-    }
-    #endregion ArgumentCount
+    else { [bool]$bSayit = $false }
 
+    $SayIt = "Using {0}" -f $Filename
+    write-host -ForegroundColor yellow $SayIt
+    if ($bSayIt) { $oSynth.SpeakAsync($SayIt) }
 
     $SourceDir= split-path $MyInvocation.MyCommand.path -Parent
     Write-host -ForegroundColor yellow "The path to the Repository is $SourceDir"
-<#
-    #Assumption that the Source Directory / Repository Workspace is located on Dropbox.
-    #Where is Dropbox located on this machine?
-    #Assumption is one of these two places
-    #First Place
-    $SourceDir = join-path $env:homedrive$env:homepath  "Dropbox\Private\Q"
-    If (test-path $SourceDir) {
-        #found it
-    }
-    else {#Assume it is here
-        $SourceDir = join-path $env:homedrive$env:homepath  "Documents\Dropbox\Private\Q"
-    }
-#>
+
     #Now test the SourceDir exists. If it doesn't then exit.
     if (!(Test-Path $SourceDir)) {read-host "The path to the Repository Workspace $SourceDir is incorrect"; exit}
 
@@ -253,7 +226,7 @@ Try {
     [system.windows.forms.sendkeys]::sendwait('%{TAB}')
  #>
     #At this point Quicken has exited. Now decide what to do with the data file we where working with.
-    if ($bSayit) {$oSynth.SpeakAsync("Do you want to move $($Filename.basename) to the repository?")}
+    if ($bSayit) {$oSynth.SpeakAsync("Do you want to move $($Filename) to the repository?")}
     Do { $MyResponse = Read-host "Move $Filename to reposity [y(es)/n(o)]"}
     while ("y", "n" -notcontains $MyResponse)
     #$MyResponse = read-host "Move $Filename to reposity [y(es)/n(o)]"
@@ -265,12 +238,12 @@ Try {
         [console]::beep($ToneGood, 500)
     }
     else {
-        if ($bSayit) {$oSynth.SpeakAsync("Do you want to move $($Filename.basename) to the recycle-bin?")}
-        Do { $MyResponse = Read-host "Move $($Filename.basename) to the recycle-bin? [y(es)/n(o)]"}
+        if ($bSayit) {$oSynth.SpeakAsync("Do you want to move $($Filename) to the recycle-bin?")}
+        Do { $MyResponse = Read-host "Move $($Filename) to the recycle-bin? [y(es)/n(o)]"}
         while ("y", "n" -notcontains $MyResponse)
-        #$MyResponse = read-host "Move $($Filename.basename) to the recycle-bin? [y(es)/n(o)]"
+        #$MyResponse = read-host "Move $($Filename) to the recycle-bin? [y(es)/n(o)]"
         if ( $MyResponse.tolower() -eq "y") {
-            $SayIt = "MOVING $($Filename.basename) to the recycle-bin  "
+            $SayIt = "MOVING $($Filename) to the recycle-bin  "
             write-host  -foregroundColor Yellow "$SayIt at $(Get-Date) " # "V2.15.3"
             if ($bSayIt) {$oSynth.Speak($SayIt)}
 
