@@ -99,8 +99,8 @@ else {#destination folder does not exist
 $TranscriptName="Powershell.out"
 $TranscriptNameOld=$TranscriptName + ".old"
 
-if (test-path (Join-path $DestinationDir $TranscriptNameold)) {remove-item (Join-path $DestinationDir $TranscriptNameold)}
-if (test-path (Join-path $DestinationDir $TranscriptName)) {rename-item -path (Join-path $DestinationDir $TranscriptName) -newname (Join-path $DestinationDir $TranscriptNameold)}
+if (test-path (Join-path $DestinationDir $TranscriptNameold)) {remove-item -verbose -path (Join-path $DestinationDir $TranscriptNameold)}
+if (test-path (Join-path $DestinationDir $TranscriptName)) {rename-item -verbose -path (Join-path $DestinationDir $TranscriptName) -newname (Join-path $DestinationDir $TranscriptNameold)}
 Start-Transcript -path (join-path $DestinationDir $TranscriptName) -IncludeInvocationHeader #-OutputDirectory $DestinationDir
 
 #Write-Host "**************Beginning Script**************" -ForegroundColor yellow
@@ -166,7 +166,7 @@ Try {
         #$MyResponse = read-host "$Filename exists in folder $DestinationDir - Overwrite? [y(es)/n(o)]"
         if ( $MyResponse.tolower() -eq "y") {
             write-host -ForegroundColor Yellow "Overwriting as requested"
-            Copy-Item $SourcePath $DestinationDir
+            Copy-Item $SourcePath $DestinationDir -verbose
         }
         else {write-host -ForegroundColor Yellow "Using existing file"}
     }
@@ -175,7 +175,7 @@ Try {
         #just trying to leave audit trail - experimental
         ($thisCmd="Copy-Item $SourcePath $DestinationDir")
         #Invoke-expression $thisCmd # Ithought this was working but it isn't
-        Copy-Item $SourcePath $DestinationDir
+        Copy-Item $SourcePath $DestinationDir -verbose
         if ($?){"{0} completed" -f $thisCmd}
     }
 
@@ -233,7 +233,7 @@ Try {
     if ($MyResponse.tolower() -eq "y") {
         $Sayit = "Moving '$Filename' to the repository "
         if ($bSayIt) {$oSynth.SpeakAsync($SayIt)}
-        move-Item $DestinationPath $SourceDir -force
+        move-Item $DestinationPath $SourceDir -force -Verbose
         write-host  -foregroundColor Yellow "$($Sayit) at $(Get-Date) " # "V2.15.3"
         [console]::beep($ToneGood, 500)
     }
@@ -252,7 +252,7 @@ Try {
                 [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($DestinationPath, 'OnlyErrorDialogs', 'SendToRecycleBin')
             }
             else {
-                remove-item $DestinationPath
+                remove-item $DestinationPath -verbose
             }
             [console]::beep($ToneGood, $ToneDuration)
         }
