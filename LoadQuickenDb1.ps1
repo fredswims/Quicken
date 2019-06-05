@@ -7,12 +7,13 @@
     [Switch]
     $Speak,
 
-    [Parameter(Mandatory = $false)]
+    [Parameter(Mandatory = $true)]
     [Switch]
     $DebugMessages)
 
     write-host "the value of Filename is $Filename"
     write-host "the value of Speak is $Speak"
+    write-host "the value of DebugMessages is $DebugMessages"
 <#
 Invoke like
 powershell.exe -noprofile -file $runThis  -Filename "Home.qdf" -Speak
