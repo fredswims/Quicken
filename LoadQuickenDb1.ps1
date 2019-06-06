@@ -7,19 +7,19 @@
     [Switch]
     $Speak,
 
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [Switch]
-    $DebugMessages)
+    $ShowDebug)
 
     write-host "the value of Filename is $Filename"
     write-host "the value of Speak is $Speak"
-    write-host "the value of DebugMessages is $DebugMessages"
+    write-host "the value of ShowDebug is $ShowDebug"
 <#
 Invoke like
 powershell.exe -noprofile -file $runThis  -Filename "Home.qdf" -Speak
 #>
-if ($DebugMessages){Set-PSDebug -strict -trace 2} # I have not tested this
-($ThisVersion="V3.0.2")
+if ($ShowDebug){Set-PSDebug -strict -trace 2} # I have not tested this
+($ThisVersion="V3.0.3")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -53,15 +53,15 @@ Mod 2018-05-24 'Loop on Read-Host
 2019-05-31 FAJ V3.0.0
     Added params to this script.
     It should be called like this
-    powershell.exe -noprofile -file $FullPathToScriptFile -Filename DataFileLikeHOME.QDF -Speak
+    powershell.exe -noprofile -file $FullPathToScriptFile -Filename DataFileLikeHOME.QDF [-Speak] [-DebugMessages]
     *** We assume the DataFile is in the folder (the REPOSITORY) where the script resides.
 
 2019-06-05 FAJ V3.0.1
     Set the proper console display for "read-response" to  [Y] Yes  [N]  No"
     and if reponse was improper added Do-While loop where previously left out.
     Changed some instances of write-host to write-warning.
-    Cast to [Void] calls to $oSynth.SpeakAsync($SayIt) ([Void]$oSynth.SpeakAsync($SayIt)) 
-    to eliminate the appearance of "Compeleted" on the console 
+    Cast to [Void] calls to $oSynth.SpeakAsync($SayIt) ([Void]$oSynth.SpeakAsync($SayIt))
+    to eliminate the appearance of "Compeleted" on the console
 #>
 
 <#
@@ -169,24 +169,24 @@ Try {
         $Sayit = "The data file is already in the $tempFolderName folder. Overwrite It? "
         if ($bSayit) {
             [Void]$oSynth.SpeakAsync($Sayit)}
-        Write-Warning  $SayIt      
+        Write-Warning  $SayIt
         get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
-        
-        Do { 
-            $MyResponse = Read-host "$Filename exists in folder $DestinationDir - Overwrite? [Y] Yes  [N]  No" 
+
+        Do {
+            $MyResponse = Read-host "$Filename exists in folder $DestinationDir - Overwrite? [Y] Yes  [N]  No"
         } while ("y", "n" -notcontains $MyResponse.ToLower())
-        
+
         if ( $MyResponse.tolower() -eq "y") {
             $Sayit = "Over-writing $Filename"
             if ($bSayit) {[Void]$oSynth.SpeakAsync($Sayit)}
-            Write-Warning  $SayIt      
+            Write-Warning  $SayIt
             Copy-Item $SourcePath $DestinationDir
-            if ($?) {write-warning " $SayIt completed" -Verbose} 
+            if ($?) {write-warning " $SayIt completed" -Verbose}
         }
         else {
             $Sayit = "Using existing file"
             if ($bSayit) {[Void]$oSynth.SpeakAsync($Sayit)}
-            Write-Warning  $SayIt      
+            Write-Warning  $SayIt
         }
     }
     else {
@@ -242,7 +242,7 @@ Try {
  #>
     #At this point Quicken has exited. Now decide what to do with the data file we where working with.
     if ($bSayit) {$oSynth.SpeakAsync("Do you want to move $($Filename) to the repository?")}
-    Do { 
+    Do {
         $MyResponse = Read-host "Move $Filename to reposity [Y] Yes  [N]  No"
     } while ("y", "n" -notcontains $MyResponse)
     if ($MyResponse.tolower() -eq "y") {
