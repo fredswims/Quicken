@@ -159,7 +159,7 @@ Try {
     if (!(Test-Path $SourcePath)) {
         read-host "The Repository file path $SourcePath does not exist."; exit}
     else {
-        write-host -ForegroundColor Yellow "The file in the Repository is $SourcePath"
+        write-warning "The file in the Repository is $SourcePath"
         get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
     }
 
@@ -241,7 +241,10 @@ Try {
     [system.windows.forms.sendkeys]::sendwait('%{TAB}')
  #>
     #At this point Quicken has exited. Now decide what to do with the data file we where working with.
-    if ($bSayit) {$oSynth.SpeakAsync("Do you want to move $($Filename) to the repository?")}
+    write-warning "INFORMATION::The file in the runtime workspace is $DestinationPath"
+    get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
+
+    if ($bSayit) {[void]$oSynth.SpeakAsync("Do you want to move $($Filename) to the repository?")}
     Do {
         $MyResponse = Read-host "Move $Filename to reposity [Y] Yes  [N]  No"
     } while ("y", "n" -notcontains $MyResponse)
@@ -251,6 +254,8 @@ Try {
         move-Item $DestinationPath $SourceDir -force
         write-host  -foregroundColor Yellow "$($Sayit) at $(Get-Date) " # "V2.15.3"
         [console]::beep($ToneGood, 500)
+        Write-Warning "INFORMATION:: The updated file in the Repository is $SourcePath"
+        get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
     }
     else {
         if ($bSayit) {[Void]$oSynth.SpeakAsync("Do you want to move $($Filename) to the recycle-bin?")}
