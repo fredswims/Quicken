@@ -19,7 +19,7 @@ Invoke like
 powershell.exe -noprofile -file $runThis  -Filename "Home.qdf" -Speak
 #>
 if ($ShowDebug){Set-PSDebug -strict -trace 2} # I have not tested this
-($ThisVersion="V3.0.3")
+($ThisVersion="V3.0.5")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -62,7 +62,12 @@ Mod 2018-05-24 'Loop on Read-Host
     Changed some instances of write-host to write-warning.
     Cast to [Void] calls to $oSynth.SpeakAsync($SayIt) ([Void]$oSynth.SpeakAsync($SayIt))
     to eliminate the appearance of "Compeleted" on the console
-#>
+
+    2019-06-08 FAJ V3.0.5
+    Experimenting with allowing responses to be "y" or "yes", etc..
+    The alias for quickn is invoking LoadQuickenDb1.ps1.
+    Becareful what is commited to github.
+    #>
 
 <#
 This script invokes Quicken and requires 2 arguments on the command line invoking it.
@@ -195,10 +200,11 @@ Try {
         ($thisCmd="Copy-Item $SourcePath $DestinationDir")
         #Invoke-expression $thisCmd # Ithought this was working but it isn't
         Copy-Item $SourcePath $DestinationDir
-        if ($?){"{0} completed" -f $thisCmd}
+        if ($?){Write-Warning "$thisCmd completed"}
+        #if ($?){"{0} completed" -f $thisCmd}
     }
 
-    "Launch Quicken by referencing the data file in $DestinationPath"
+    Write-Warning  "Information::Launch Quicken by referencing the data file in $DestinationPath"
     $ExitCode = 1
     do {
         #$LastExitCode = 0
@@ -260,8 +266,8 @@ Try {
     else {
         if ($bSayit) {[Void]$oSynth.SpeakAsync("Do you want to move $($Filename) to the recycle-bin?")}
         Do { $MyResponse = Read-host "Move $($Filename) to the recycle-bin? [Y] Yes  [N]  No"}
-        while ("y", "n" -notcontains $MyResponse)
-        if ( $MyResponse.tolower() -eq "y") {
+        while ("y","yes","n","no" -notcontains $MyResponse)
+        if ("y","yes" -contains $MyResponse) {
             $SayIt = "MOVING $($Filename) to the recycle-bin  "
             write-host  -foregroundColor Yellow "$SayIt at $(Get-Date) " # "V2.15.3"
             if ($bSayIt) {$oSynth.Speak($SayIt)}
