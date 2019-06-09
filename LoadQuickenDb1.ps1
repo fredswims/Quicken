@@ -9,17 +9,26 @@
 
     [Parameter(Mandatory = $false)]
     [Switch]
-    $ShowDebug)
+    $ShowDebug,
+
+    [Parameter(Mandatory = $false)]
+    [Switch]
+    $StartStop)
 
     write-host "the value of Filename is $Filename"
     write-host "the value of Speak is $Speak"
     write-host "the value of ShowDebug is $ShowDebug"
+    write-host "the value of StartStop is $StartStop"
+
+    if($StartStop){Read-host "Terminating";exit} #Just want to see how the function is invoked.
 <#
 Invoke like
-powershell.exe -noprofile -file $runThis  -Filename "Home.qdf" -Speak
+powershell.exe -noprofile -file NameOfThisScript  -Filename "Home.qdf" -Speak
+or
+
 #>
 if ($ShowDebug){Set-PSDebug -strict -trace 2} # I have not tested this
-($ThisVersion="V3.0.5")
+($ThisVersion="V3.0.6")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -67,6 +76,9 @@ Mod 2018-05-24 'Loop on Read-Host
     Experimenting with allowing responses to be "y" or "yes", etc..
     The alias for quickn is invoking LoadQuickenDb1.ps1.
     Becareful what is commited to github.
+
+    2019-06-08 FAJ V3.0.6
+    Added StartStop param. When set the function prints the params and exits.
     #>
 
 <#
