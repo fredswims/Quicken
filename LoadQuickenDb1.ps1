@@ -28,7 +28,7 @@ or
 
 #>
 if ($ShowDebug){Set-PSDebug -strict -trace 2} # I have not tested this
-($ThisVersion="V3.0.6")
+($ThisVersion="V3.0.7")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -72,14 +72,19 @@ Mod 2018-05-24 'Loop on Read-Host
     Cast to [Void] calls to $oSynth.SpeakAsync($SayIt) ([Void]$oSynth.SpeakAsync($SayIt))
     to eliminate the appearance of "Compeleted" on the console
 
-    2019-06-08 FAJ V3.0.5
+2019-06-08 FAJ V3.0.5
     Experimenting with allowing responses to be "y" or "yes", etc..
     The alias for quickn is invoking LoadQuickenDb1.ps1.
     Becareful what is commited to github.
 
-    2019-06-08 FAJ V3.0.6
+2019-06-08 FAJ V3.0.6
     Added StartStop param. When set the function prints the params and exits.
-    #>
+
+2019-06-15 FAJ V3.0.7
+    Modified responses to Read-Host.
+#>
+
+
 
 <#
 This script invokes Quicken and requires 2 arguments on the command line invoking it.
@@ -189,11 +194,11 @@ Try {
         Write-Warning  $SayIt
         get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
 
+        #$SayIt="$Filename is already in the working folder - Overwrite?"
         Do {
-            $MyResponse = Read-host "$Filename exists in folder $DestinationDir - Overwrite? [Y] Yes  [N]  No"
-        } while ("y", "n" -notcontains $MyResponse.ToLower())
-
-        if ( $MyResponse.tolower() -eq "y") {
+            $MyResponse = Read-host "$SayIt [Y] Yes  [N]  No"
+        } until ($MyResponse -like 'y*' -or $MyResponse -like 'n*')
+        if ( $MyResponse.tolower() -like "y*") {
             $Sayit = "Over-writing $Filename"
             if ($bSayit) {[Void]$oSynth.SpeakAsync($Sayit)}
             Write-Warning  $SayIt
@@ -228,13 +233,12 @@ Try {
         $ExitCode = $LastExitCode
         write-host "LastExitCode $ExitCode"
         if ($ExitCode -ne 0) {
-            $Sayit = "Oops, Quicken stopped with code $ExitCode "
+            $Sayit = "Oops, Quicken stopped with code $ExitCode Do you want to restart Quicken"
             [Void]$oSynth.SpeakAsync($SayIt)
             write-host -ForegroundColor "Red" $SayIt
-            Do {$MyResponse = Read-Host "Do you want to restart Quicken? [Y] Yes  [N]  No"}
-            while ("y", "n" -notcontains $MyResponse.ToLower())
-            if ($MyResponse.ToLower -eq "n") {$ExitCode = 0}
-
+            Do {$MyResponse = Read-Host "$SayIt [Y] Yes  [N]  No"}
+            until ($MyResponse -like 'y*' -or $MyResponse -like 'n*')
+            if ($MyResponse -like "n*") {$ExitCode = 0}
         }
     } until ($ExitCode -eq 0)
 
@@ -262,11 +266,12 @@ Try {
     write-warning "INFORMATION::The file in the runtime workspace is $DestinationPath"
     get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
 
-    if ($bSayit) {[void]$oSynth.SpeakAsync("Do you want to move $($Filename) to the repository?")}
-    Do {
-        $MyResponse = Read-host "Move $Filename to reposity [Y] Yes  [N]  No"
-    } while ("y", "n" -notcontains $MyResponse)
-    if ($MyResponse.tolower() -eq "y") {
+    $SayIt="Do you want to move $($Filename) to the repository?"
+    if ($bSayit) {[void]$oSynth.SpeakAsync($SayIt)}
+    Do {$MyResponse = Read-host "$SayIt [Y] Yes  [N]  No"}
+    until ( ($MyResponse -like "y*" ) -or ($MyResponse -like "n*") )
+
+    if ($MyResponse -like "y*") {
         $Sayit = "Moving '$Filename' to the repository "
         if ($bSayIt) {[void]$oSynth.SpeakAsync($SayIt)}
         move-Item $DestinationPath $SourceDir -force
@@ -276,10 +281,11 @@ Try {
         get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
     }
     else {
-        if ($bSayit) {[Void]$oSynth.SpeakAsync("Do you want to move $($Filename) to the recycle-bin?")}
-        Do { $MyResponse = Read-host "Move $($Filename) to the recycle-bin? [Y] Yes  [N]  No"}
-        while ("y","yes","n","no" -notcontains $MyResponse)
-        if ("y","yes" -contains $MyResponse) {
+        $SayIt="Do you want to move $($Filename) to the recycle-bin?"
+        if ($bSayit) {[Void]$oSynth.SpeakAsync($SayIt)}
+        Do { $MyResponse = Read-host "$($SayIt) [Y] Yes  [N]  No"}
+        until ( ($MyResponse -like "y*" ) -or ($MyResponse -like "n*") )
+        if ($MyResponse -like "y*") {
             $SayIt = "MOVING $($Filename) to the recycle-bin  "
             write-host  -foregroundColor Yellow "$SayIt at $(Get-Date) " # "V2.15.3"
             if ($bSayIt) {$oSynth.Speak($SayIt)}
