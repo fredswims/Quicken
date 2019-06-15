@@ -28,7 +28,7 @@ or
 
 #>
 if ($ShowDebug){Set-PSDebug -strict -trace 2} # I have not tested this
-($ThisVersion="V3.0.7")
+($ThisVersion="V3.0.8")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -80,7 +80,7 @@ Mod 2018-05-24 'Loop on Read-Host
 2019-06-08 FAJ V3.0.6
     Added StartStop param. When set the function prints the params and exits.
 
-2019-06-15 FAJ V3.0.7
+2019-06-15 FAJ V3.0.7 and V3.0.8
     Modified responses to Read-Host.
 #>
 
@@ -266,7 +266,7 @@ Try {
     write-warning "INFORMATION::The file in the runtime workspace is $DestinationPath"
     get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
 
-    $SayIt="Do you want to move $($Filename) to the repository?"
+    $SayIt="Do you want the working copy of $($Filename) to over-write the copy in the repository?"
     if ($bSayit) {[void]$oSynth.SpeakAsync($SayIt)}
     Do {$MyResponse = Read-host "$SayIt [Y] Yes  [N]  No"}
     until ( ($MyResponse -like "y*" ) -or ($MyResponse -like "n*") )
