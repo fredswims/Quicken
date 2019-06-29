@@ -240,9 +240,9 @@ Try {
     else {
         if ($bSayit) {$oSynth.SpeakAsync("Do you want to move $($Filename) to the recycle-bin?")}
         Do { $MyResponse = Read-host "Move $($Filename) to the recycle-bin? [y(es)/n(o)]"}
-        while ("y", "n" -notcontains $MyResponse)
+        while ("y","yes","n","no" -notcontains $MyResponse)
         #$MyResponse = read-host "Move $($Filename) to the recycle-bin? [y(es)/n(o)]"
-        if ( $MyResponse.tolower() -eq "y") {
+        if ("y","yes" -contains $MyResponse) {
             $SayIt = "MOVING $($Filename) to the recycle-bin  "
             write-host  -foregroundColor Yellow "$SayIt at $(Get-Date) " # "V2.15.3"
             if ($bSayIt) {$oSynth.Speak($SayIt)}
