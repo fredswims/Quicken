@@ -28,7 +28,7 @@ or
 
 #>
 if ($ShowDebug){Set-PSDebug -strict -trace 2} # I have not tested this
-($ThisVersion="V3.0.8")
+($ThisVersion="V3.0.10")
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -82,9 +82,19 @@ Mod 2018-05-24 'Loop on Read-Host
 
 2019-06-15 FAJ V3.0.7 and V3.0.8
     Modified responses to Read-Host.
-#>
 
+2019-06-28 FAJ V3.0.9
+    $SayIt="Do you want to replace the file in the repository?"
 
+2019-07-09 FAJ V3.0.10
+    The reverting the message to somewhat like the original.
+    $Sayit="Do you want to move this file to the repository?"
+    Prior to moving the file;
+    #in the repository,
+    make a backup of the file in the repository
+    but first remove the prevous one.
+        <remove-item home.qdf.old>
+        <rename-item home.qdf -> home.qdf.old>
 
 <#
 This script invokes Quicken and requires 2 arguments on the command line invoking it.
@@ -266,7 +276,7 @@ Try {
     write-warning "INFORMATION::The file in the runtime workspace is $DestinationPath"
     get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
 
-    $SayIt="Do you want the working copy of $($Filename) to over-write the copy in the repository?"
+    $SayIt="Do you want to move this file to the repository?"
     if ($bSayit) {[void]$oSynth.SpeakAsync($SayIt)}
     Do {$MyResponse = Read-host "$SayIt [Y] Yes  [N]  No"}
     until ( ($MyResponse -like "y*" ) -or ($MyResponse -like "n*") )
@@ -274,6 +284,11 @@ Try {
     if ($MyResponse -like "y*") {
         $Sayit = "Moving '$Filename' to the repository "
         if ($bSayIt) {[void]$oSynth.SpeakAsync($SayIt)}
+        #in the repository,
+        #<remove-item home.qdf.old>
+        remove-item -Force "$SourcePath.old"
+        #rename-item home.qdf -> home.qdf.old
+        rename-item -force $SourcePath "$Sourcepath.old"
         move-Item $DestinationPath $SourceDir -force
         write-host  -foregroundColor Yellow "$($Sayit) at $(Get-Date) " # "V2.15.3"
         [console]::beep($ToneGood, 500)
