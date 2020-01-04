@@ -1,5 +1,5 @@
 ﻿param ([Parameter(Mandatory = $true,
-    HelpMessage = "Enter the name of the Quicken data file; e.g., Home.qdf : ")]
+        HelpMessage = "Enter the name of the Quicken data file; e.g., Home.qdf : ")]
     [System.IO.FileInfo]
     $FileName,
 
@@ -15,20 +15,22 @@
     [Switch]
     $StartStop)
 
-    write-host "the value of Filename is $Filename"
-    write-host "the value of Speak is $Speak"
-    write-host "the value of ShowDebug is $ShowDebug"
-    write-host "the value of StartStop is $StartStop"
+write-host "the value of Filename is $Filename"
+write-host "the value of Speak is $Speak"
+write-host "the value of ShowDebug is $ShowDebug"
+write-host "the value of StartStop is $StartStop"
 
-    if($StartStop){Read-host "Terminating";exit} #Just want to see how the function is invoked.
+if ($StartStop) { Read-host "Terminating"; exit } #Just want to see how the function is invoked.
 <#
 Invoke like
 powershell.exe -noprofile -file NameOfThisScript  -Filename "Home.qdf" -Speak
 or
 
 #>
-if ($ShowDebug){Set-PSDebug -strict -trace 2} # I have not tested this
-($ThisVersion="V3.0.10")
+if ($ShowDebug) { Set-PSDebug -strict -trace 2 } # I have not tested this
+($ThisVersion = "V3.0.10")
+$ErrorActionPreference = "Stop" #failing cmdlets will jump to the 'catch' block
+$Error.Clear()
 <#
 The name of this script is "LoadQuickenDb.ps1"
 2017-08-20 - Copyright 2017 FAJ
@@ -96,6 +98,11 @@ Mod 2018-05-24 'Loop on Read-Host
         <remove-item home.qdf.old>
         <rename-item home.qdf -> home.qdf.old>
 
+2020-01-03 FAJ V4.0.0
+        Improvements in error handling.
+        Use of -Verbose and $ErrorActionPreference = "Stop"
+        Try,Catch,Finish embelishments for Powershell Preview 7
+
 <#
 This script invokes Quicken and requires 2 arguments on the command line invoking it.
 The first argument is the name of a Quicken data file.
@@ -127,23 +134,26 @@ Set-StrictMode -Version latest #Before careful. I don't know all the implication
 #Find the run-time workspace.
 $DestinationDir = Join-Path $env:HOMEDRIVE$env:HOMEPATH "Documents\Quicken" #This is where Quicken likes the run-time file to be.
 write-host "Does destination folder exist?"
-if (test-path $DestinationDir) {#it exists
+if (test-path $DestinationDir) {
+    #it exists
     write-host "Destination folder $DestinationDir exists"
 }
-else {#destination folder does not exist
+else {
+    #destination folder does not exist
     #it may be better to exit the program then to create this Folder.
     write-host "the destination folder does not exist"
     write-host "creating destination folder"
     new-item -path $DestinationDir -itemtype directory # was it created?
 }
-$TranscriptName="Powershell.out"
-$TranscriptNameOld=$TranscriptName + ".old"
+$TranscriptName = "Powershell.out"
+$TranscriptNameOld = $TranscriptName + ".old"
 
-if (test-path (Join-path $DestinationDir $TranscriptNameold)) {remove-item (Join-path $DestinationDir $TranscriptNameold)}
-if (test-path (Join-path $DestinationDir $TranscriptName)) {rename-item -path (Join-path $DestinationDir $TranscriptName) -newname (Join-path $DestinationDir $TranscriptNameold)}
+if (test-path (Join-path $DestinationDir $TranscriptNameold)) { remove-item (Join-path $DestinationDir $TranscriptNameold) }
+if (test-path (Join-path $DestinationDir $TranscriptName)) { rename-item -path (Join-path $DestinationDir $TranscriptName) -newname (Join-path $DestinationDir $TranscriptNameold) }
 Start-Transcript -path (join-path $DestinationDir $TranscriptName) -IncludeInvocationHeader #-OutputDirectory $DestinationDir
 
 #Write-Host "**************Beginning Script**************" -ForegroundColor yellow
+"Location of Powershell is {0}" -f $PSHome
 write-host (get-process -id $pid).processname
 get-process -id $pid | format-list -property *
 write-host $(Get-Date)
@@ -162,7 +172,6 @@ $ToneBad = 100
 $ToneDuration = 500
 
 Try {
-    if ( $null -ne (get-process "qw"-ErrorAction SilentlyContinue) ) { write-host -ForegroundColor Red "Quicken is running"; read-host "press RETURN to exit"; exit }
 
     if ($speak -and $psversiontable.psedition -ne "CORE") {
         [bool]$bSayit = $true
@@ -176,20 +185,29 @@ Try {
     }
     else { [bool]$bSayit = $false }
 
+    if ( $null -ne (Get-Process "qw"-ErrorAction Ignore) ) {
+        $SayIt = "Quicken is running"
+        if ($bSayIt) { [Void]$oSynth.SpeakAsync($SayIt) }
+        write-host -ForegroundColor Red $SayIt
+        read-host "press RETURN to exit"
+        exit #invoke Catch Block.
+    }
+
     $SayIt = "Using {0}" -f $Filename
     write-host -ForegroundColor yellow $SayIt
-    if ($bSayIt) {[Void]$oSynth.SpeakAsync($SayIt)}
+    if ($bSayIt) { [Void]$oSynth.SpeakAsync($SayIt) }
 
-    $SourceDir= split-path $MyInvocation.MyCommand.path -Parent
+    $SourceDir = split-path $MyInvocation.MyCommand.path -Parent
     Write-host -ForegroundColor yellow "The path to the Repository is $SourceDir"
 
     #Now test the SourceDir exists. If it doesn't then exit.
-    if (!(Test-Path $SourceDir)) {read-host "The path to the Repository Workspace $SourceDir is incorrect"; exit}
+    if (!(Test-Path $SourceDir)) { read-host "The path to the Repository Workspace $SourceDir is incorrect"; exit }
 
     #Does the Quicken data file exist?
     $SourcePath = Join-Path $SourceDir $FileName
     if (!(Test-Path $SourcePath)) {
-        read-host "The Repository file path $SourcePath does not exist."; exit}
+        read-host "The Repository file path $SourcePath does not exist."; exit
+    }
     else {
         write-warning "The file in the Repository is $SourcePath"
         get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
@@ -200,7 +218,8 @@ Try {
         $TempFolderName = Split-path $DestinationDir -leaf
         $Sayit = "The data file is already in the $tempFolderName folder. Overwrite It? "
         if ($bSayit) {
-            [Void]$oSynth.SpeakAsync($Sayit)}
+            [Void]$oSynth.SpeakAsync($Sayit)
+        }
         Write-Warning  $SayIt
         get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
 
@@ -210,32 +229,32 @@ Try {
         } until ($MyResponse -like 'y*' -or $MyResponse -like 'n*')
         if ( $MyResponse.tolower() -like "y*") {
             $Sayit = "Over-writing $Filename"
-            if ($bSayit) {[Void]$oSynth.SpeakAsync($Sayit)}
+            if ($bSayit) { [Void]$oSynth.SpeakAsync($Sayit) }
             Write-Warning  $SayIt
-            Copy-Item $SourcePath $DestinationDir
-            if ($?) {write-warning " $SayIt completed" -Verbose}
+            Copy-Item -verbose $SourcePath $DestinationDir
+            if ($?) { write-warning " $SayIt completed" -Verbose }
         }
         else {
             $Sayit = "Using existing file"
-            if ($bSayit) {[Void]$oSynth.SpeakAsync($Sayit)}
+            if ($bSayit) { [Void]$oSynth.SpeakAsync($Sayit) }
             Write-Warning  $SayIt
         }
     }
     else {
         write-host -ForegroundColor Yellow "copying $SourcePath to $DestinationDir"
         #just trying to leave audit trail - experimental
-        ($thisCmd="Copy-Item $SourcePath $DestinationDir")
+        ($thisCmd = "Copy-Item $SourcePath $DestinationDir")
         #Invoke-expression $thisCmd # Ithought this was working but it isn't
-        Copy-Item $SourcePath $DestinationDir
-        if ($?){Write-Warning "$thisCmd completed"}
+        Copy-Item -verbose $SourcePath $DestinationDir
+        if ($?) { Write-Warning "$thisCmd completed" }
         #if ($?){"{0} completed" -f $thisCmd}
     }
 
-    Write-Warning  "Information::Launch Quicken by referencing the data file in $DestinationPath"
+    Write-Warning  "Information::Launching Quicken by referencing the data file in $DestinationPath"
     $ExitCode = 1
     do {
         #$LastExitCode = 0
-        if ($bSayit) {[Void]$oSynth.SpeakAsync(("{0}     you are invoking Quicken with {1}" -f $env:USERNAME, $Filename))}
+        if ($bSayit) { [Void]$oSynth.SpeakAsync(("{0}     you are invoking Quicken with {1}" -f $env:USERNAME, $Filename)) }
 
         cmd /C "$DestinationPath" #launch Quicken using file association and WAIT for it to exit.
         #Start-Process -wait "$DestinationPath" #launch Quicken using file association and WAIT for it to exit.
@@ -246,9 +265,9 @@ Try {
             $Sayit = "Oops, Quicken stopped with code $ExitCode Do you want to restart Quicken"
             [Void]$oSynth.SpeakAsync($SayIt)
             write-host -ForegroundColor "Red" $SayIt
-            Do {$MyResponse = Read-Host "$SayIt [Y] Yes  [N]  No"}
+            Do { $MyResponse = Read-Host "$SayIt [Y] Yes  [N]  No" }
             until ($MyResponse -like 'y*' -or $MyResponse -like 'n*')
-            if ($MyResponse -like "n*") {$ExitCode = 0}
+            if ($MyResponse -like "n*") { $ExitCode = 0 }
         }
     } until ($ExitCode -eq 0)
 
@@ -262,12 +281,12 @@ Try {
         if ($Maximize) { $Mode = 3 } else { $Mode = 4 }
         $type = Add-Type -MemberDefinition $sig -Name WindowAPI -PassThru
         $hwnd = $process.MainWindowHandle
-        $null = $type::ShowWindowAsync($hwnd,$mode)
+        $null = $type::ShowWindowAsync($hwnd, $mode)
         $null = $type::SetForegroundWindow($hwnd)
     }
     Show-Process -Process (get-process -id $pid) -Maximize
 
-<#     sleep -Seconds 2
+    <#     sleep -Seconds 2
     [void][reflection.assembly]::loadwithpartialname("system.windows.forms")
     $altkeys = @(0xA4, 0x09)
     [system.windows.forms.sendkeys]::sendwait('%{TAB}')
@@ -276,47 +295,50 @@ Try {
     write-warning "INFORMATION::The file in the runtime workspace is $DestinationPath"
     get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
 
-    $SayIt="Do you want to move this file to the repository?"
-    if ($bSayit) {[void]$oSynth.SpeakAsync($SayIt)}
-    Do {$MyResponse = Read-host "$SayIt [Y] Yes  [N]  No"}
+    $SayIt = "Do you want to move this file to the repository?"
+    if ($bSayit) { [void]$oSynth.SpeakAsync($SayIt) }
+    Do { $MyResponse = Read-host "$SayIt [Y] Yes  [N]  No" }
     until ( ($MyResponse -like "y*" ) -or ($MyResponse -like "n*") )
 
     if ($MyResponse -like "y*") {
         $Sayit = "Moving '$Filename' to the repository "
-        if ($bSayIt) {[void]$oSynth.SpeakAsync($SayIt)}
-        #in the repository,
-        #<remove-item home.qdf.old>
-        remove-item -Force "$SourcePath.old"
-        #rename-item home.qdf -> home.qdf.old
-        rename-item -force $SourcePath "$Sourcepath.old"
-        move-Item $DestinationPath $SourceDir -force
+        if ($bSayIt) { [void]$oSynth.SpeakAsync($SayIt) }
+        # The previous run created a copy (SourcePath.old) in the repository.
+        # Remove the copy and create a copy of the current file before replacing it with the working copy.
+        # Future enhancement: The .old file should not be discarded until the working copy is successfully moved into the repository.
+        Get-Date
+        remove-item -verbose -Force "$SourcePath.old"
+        Get-Date
+        rename-item -verbose -force $SourcePath "$Sourcepath.old"
+        Get-Date
+        move-Item -verbose $DestinationPath $SourceDir -force
         write-host  -foregroundColor Yellow "$($Sayit) at $(Get-Date) " # "V2.15.3"
         [console]::beep($ToneGood, 500)
         Write-Warning "INFORMATION:: The updated file in the Repository is $SourcePath"
         get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
     }
     else {
-        $SayIt="Do you want to move $($Filename) to the recycle-bin?"
-        if ($bSayit) {[Void]$oSynth.SpeakAsync($SayIt)}
-        Do { $MyResponse = Read-host "$($SayIt) [Y] Yes  [N]  No"}
+        $SayIt = "Do you want to move $($Filename) to the recycle-bin?"
+        if ($bSayit) { [Void]$oSynth.SpeakAsync($SayIt) }
+        Do { $MyResponse = Read-host "$($SayIt) [Y] Yes  [N]  No" }
         until ( ($MyResponse -like "y*" ) -or ($MyResponse -like "n*") )
         if ($MyResponse -like "y*") {
             $SayIt = "MOVING $($Filename) to the recycle-bin  "
             write-host  -foregroundColor Yellow "$SayIt at $(Get-Date) " # "V2.15.3"
-            if ($bSayIt) {$oSynth.Speak($SayIt)}
+            if ($bSayIt) { $oSynth.Speak($SayIt) }
 
             if ($psversiontable.psedition -ne "CORE") {
                 Add-Type -AssemblyName Microsoft.VisualBasic
                 [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($DestinationPath, 'OnlyErrorDialogs', 'SendToRecycleBin')
             }
             else {
-                remove-item $DestinationPath
+                remove-item -verbose $DestinationPath
             }
             [console]::beep($ToneGood, $ToneDuration)
         }
         else {
             $SayIt = "Leaving the working file"
-            if ($bSayIt) {$oSynth.Speak($SayIt)}
+            if ($bSayIt) { $oSynth.Speak($SayIt) }
             write-host  -foregroundColor Yellow $SayIt
             #Read-Host "$SayIt"
             [console]::beep($ToneBad, $ToneDuration)
@@ -331,25 +353,38 @@ Try {
     # copy-Item -path (join-path $DestinationDir ($filename.basename + "*.dat")) -destination $DatFolder
     # remove-Item -path (join-path $DestinationDir ($filename.basename + "*.dat"))
 
-    explorer.exe $DestinationDir #spawn file-manager
 } #end try
 catch {
+    write-warning "catch block begins"
+    if ($PSVersionTable.PSVersion -like "7*") {
+        #get-error
+    }
+    $error[0]
     $Sayit = "Something went wrong!"
     write-host -ForegroundColor Red $SayIt
-    if ($bSayIt) {$oSynth.Speak($SayIt)}
+    if ($bSayIt) { $oSynth.Speak($SayIt) }
     [console]::beep($ToneBad, $ToneDuration)
     [console]::beep($ToneBad, $ToneDuration)
     [console]::beep($ToneBad, $ToneDuration)
+
     Read-Host -prompt "This gives you a chance to see what went wrong."
+    write-warning "catch block ends"
 }
 Finally {
+    write-warning "Finally block starts"
+    $SayIt="Completed with {0} errors." -f $error.count
+    Write-Warning $SayIt
+    If ($bSayIt) {$oSynth.Speak($SayIt)}
+    Foreach ($item in $error) { $item }
     $Sayit = "Fin E"
     write-host -ForegroundColor yellow $SayIt
     if ($bSayIt) {
         $oSynth.Speak($SayIt)
         $oSynth.Dispose()
     }
+    write-warning "Finally block ends"
     Stop-Transcript
-    #Read-Host -prompt "This gives you a chance to see what went wrong."
+    Read-Host -prompt "'Enter' to quit"
+    explorer.exe $DestinationDir #spawn file-manager
 }
 
