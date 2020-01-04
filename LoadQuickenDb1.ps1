@@ -102,6 +102,8 @@ Mod 2018-05-24 'Loop on Read-Host
         Improvements in error handling.
         Use of -Verbose and $ErrorActionPreference = "Stop"
         Try,Catch,Finish embelishments for Powershell Preview 7
+2020-01-04 FAJ V4.0.1
+        Minor changes - eliminating audit information made redundant by -verbose.
 
 <#
 This script invokes Quicken and requires 2 arguments on the command line invoking it.
@@ -241,13 +243,8 @@ Try {
         }
     }
     else {
-        write-host -ForegroundColor Yellow "copying $SourcePath to $DestinationDir"
-        #just trying to leave audit trail - experimental
-        ($thisCmd = "Copy-Item $SourcePath $DestinationDir")
-        #Invoke-expression $thisCmd # Ithought this was working but it isn't
         Copy-Item -verbose $SourcePath $DestinationDir
-        if ($?) { Write-Warning "$thisCmd completed" }
-        #if ($?){"{0} completed" -f $thisCmd}
+        if ($?) { Write-Warning " Completed" }
     }
 
     Write-Warning  "Information::Launching Quicken by referencing the data file in $DestinationPath"
