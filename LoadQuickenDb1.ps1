@@ -1,7 +1,9 @@
 ﻿param ([Parameter(Mandatory = $true,
         HelpMessage = "Enter the name of the Quicken data file; e.g., Home.qdf : ")]
-    [System.IO.FileInfo]
-    $FileName,
+    [System.IO.FileInfo]$FileName,
+
+    [Parameter(Mandatory=$false)]
+    [System.IO.FileInfo]$DestinationDir = (Join-Path $env:HOMEDRIVE$env:HOMEPATH 'Documents\Quicken'),
 
     [Parameter(Mandatory = $false)]
     [Switch]
@@ -13,9 +15,11 @@
 
     [Parameter(Mandatory = $false)]
     [Switch]
-    $StartStop)
+    $StartStop
+)
 
 write-host "the value of Filename is $Filename"
+write-host "the value of DestinationDir is $Destinationdir"
 write-host "the value of Speak is $Speak"
 write-host "the value of ShowDebug is $ShowDebug"
 write-host "the value of StartStop is $StartStop"
@@ -104,6 +108,8 @@ Mod 2018-05-24 'Loop on Read-Host
         Try,Catch,Finish embelishments for Powershell Preview 7
 2020-01-04 FAJ V4.0.1
         Minor changes - eliminating audit information made redundant by -verbose.
+2020-01-04 FAJ V4.0.2
+        Added Parameter $DestinationDir
 
 <#
 This script invokes Quicken and requires 2 arguments on the command line invoking it.
@@ -134,25 +140,25 @@ Write-Host "**************Beginning Script" -ForegroundColor "Yellow"
 Set-StrictMode -Version latest #Before careful. I don't know all the implications of this setting!
 
 #Find the run-time workspace.
-$DestinationDir = Join-Path $env:HOMEDRIVE$env:HOMEPATH "Documents\Quicken" #This is where Quicken likes the run-time file to be.
+#$DestinationDir = Join-Path $env:HOMEDRIVE$env:HOMEPATH "Documents\Quicken" #This is where Quicken likes the run-time file to be.
 write-host "Does destination folder exist?"
 if (test-path $DestinationDir) {
     #it exists
     write-host "Destination folder $DestinationDir exists"
 }
-else {
-    #destination folder does not exist
+else { #destination folder does not exist
     #it may be better to exit the program then to create this Folder.
-    write-host "the destination folder does not exist"
+    Read-host "the destination folder $DestinationDir does not exist;'Enter' will create it. Otherwise control-C to quit."
     write-host "creating destination folder"
-    new-item -path $DestinationDir -itemtype directory # was it created?
+    new-item -verbose -path $DestinationDir -itemtype directory # was it created?
 }
 $TranscriptName = "Powershell.out"
+$TranscriptFullName=Join-path $DestinationDir $TranscriptName
 $TranscriptNameOld = $TranscriptName + ".old"
-
-if (test-path (Join-path $DestinationDir $TranscriptNameold)) { remove-item (Join-path $DestinationDir $TranscriptNameold) }
-if (test-path (Join-path $DestinationDir $TranscriptName)) { rename-item -path (Join-path $DestinationDir $TranscriptName) -newname (Join-path $DestinationDir $TranscriptNameold) }
-Start-Transcript -path (join-path $DestinationDir $TranscriptName) -IncludeInvocationHeader #-OutputDirectory $DestinationDir
+$TranscriptFullNameOld=Join-path $DestinationDir $TranscriptNameOld
+if (test-path $TranscriptFullNameOld) { remove-item -Verbose $TranscriptFullNameOld }
+if (test-path $TranscriptFullName) { rename-item -verbose -path $TranscriptFullName -newname $TranscriptFullNameOld }
+Start-Transcript -path $TranscriptFullName -IncludeInvocationHeader
 
 #Write-Host "**************Beginning Script**************" -ForegroundColor yellow
 "Location of Powershell is {0}" -f $PSHome
@@ -314,7 +320,7 @@ Try {
         Write-Warning "INFORMATION:: The updated file in the Repository is $SourcePath"
         get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
     }
-    else {
+    else { #chose to keep the working file in the repository.
         $SayIt = "Do you want to move $($Filename) to the recycle-bin?"
         if ($bSayit) { [Void]$oSynth.SpeakAsync($SayIt) }
         Do { $MyResponse = Read-host "$($SayIt) [Y] Yes  [N]  No" }
@@ -333,7 +339,7 @@ Try {
             }
             [console]::beep($ToneGood, $ToneDuration)
         }
-        else {
+        else { #chose to keep the working file stays in the runtime workspace.
             $SayIt = "Leaving the working file"
             if ($bSayIt) { $oSynth.Speak($SayIt) }
             write-host  -foregroundColor Yellow $SayIt
@@ -380,6 +386,7 @@ Finally {
         $oSynth.Dispose()
     }
     write-warning "Finally block ends"
+    Get-History -Verbose
     Stop-Transcript
     Read-Host -prompt "'Enter' to quit"
     explorer.exe $DestinationDir #spawn file-manager
