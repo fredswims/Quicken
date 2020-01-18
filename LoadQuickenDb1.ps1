@@ -42,7 +42,7 @@ The name of this script is "LoadQuickenDb.ps1"
 One day I should put in the standard established for Powershell Headers.
 Mod 2017-10-15 - Push *.dat files to the dat subfolder.
 Mod 2017-11-19 - When Quicken exits bring this window to the foreground.
-Added function 'Show-Process($Process, [Switch]$Maximize)'
+Added function 'Maximize-ThisWindow($Process, [Switch]$Maximize)'
 Mod 2018-05-24 'Loop on Read-Host
 2019-02-19 FAJ
     Changed launch of Powershell using an Alias in profile.ps1 as
@@ -110,6 +110,11 @@ Mod 2018-05-24 'Loop on Read-Host
         Minor changes - eliminating audit information made redundant by -verbose.
 2020-01-04 FAJ V4.0.2
         Added Parameter $DestinationDir
+2020-01-10 FAJ V4.0.3
+        Streamlined the function Maximize-ThisWindow and removed 2nd parameter.
+2020-01-18 FAJ V4.1
+        If the file is already in the working directory and you don't want to use it
+        rename it (append the date and time to the basename) before copying the file from the repository.
 
 <#
 This script invokes Quicken and requires 2 arguments on the command line invoking it.
@@ -180,8 +185,19 @@ $ToneBad = 100
 $ToneDuration = 500
 
 Try {
+    function Maximize-ThisWindow($Process) {
+        $sig = '
+        [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        [DllImport("user32.dll")] public static extern int SetForegroundWindow(IntPtr hwnd);
+        '
+        $type = Add-Type -MemberDefinition $sig -Name WindowAPI -PassThru
+        $hwnd = $process.MainWindowHandle
+        $null = $type::ShowWindow($hwnd, 3)
+        $null = $type::SetForegroundWindow($hwnd) #puts cursor in windows
+    }
+    #Maximize-ThisWindow -Process (get-process -id $pid)  #Will this work for CORE?
 
-    if ($speak -and $psversiontable.psedition -ne "CORE") {
+    if ($speak -and $PSVersiontable.PSEdition -ne "CORE") {
         [bool]$bSayit = $true
         #https://msdn.microsoft.com/en-us/library/system.speech.synthesis.speechsynthesizer(v=vs.110).aspx
         add-type -assemblyname system.speech
@@ -211,7 +227,7 @@ Try {
     #Now test the SourceDir exists. If it doesn't then exit.
     if (!(Test-Path $SourceDir)) { read-host "The path to the Repository Workspace $SourceDir is incorrect"; exit }
 
-    #Does the Quicken data file exist?
+    #Is the file in the Repository?
     $SourcePath = Join-Path $SourceDir $FileName
     if (!(Test-Path $SourcePath)) {
         read-host "The Repository file path $SourcePath does not exist."; exit
@@ -221,36 +237,36 @@ Try {
         get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
     }
 
-    $DestinationPath = Join-Path $DestinationDir $FileName #fullpath to Quicken data file.
+    [System.IO.FileInfo]$DestinationPath = Join-Path $DestinationDir $FileName #fullpath to Quicken data file.
+    # Is the file already in the working folder?
     if (test-path $DestinationPath) {
-        $TempFolderName = Split-path $DestinationDir -leaf
-        $Sayit = "The data file is already in the $tempFolderName folder. Overwrite It? "
-        if ($bSayit) {
-            [Void]$oSynth.SpeakAsync($Sayit)
-        }
+        $Sayit = "The data file is already in the working folder '$($DestinationDir)'. Do you want to use it? "
+        if ($bSayit) {[Void]$oSynth.SpeakAsync($Sayit)}
         Write-Warning  $SayIt
         get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
-
-        #$SayIt="$Filename is already in the working folder - Overwrite?"
         Do {
             $MyResponse = Read-host "$SayIt [Y] Yes  [N]  No"
         } until ($MyResponse -like 'y*' -or $MyResponse -like 'n*')
-        if ( $MyResponse.tolower() -like "y*") {
-            $Sayit = "Over-writing $Filename"
+        
+        if ( $MyResponse.tolower() -like "n*") {
+            # Rename existing file (file.ext -> file-2020-01-18T14:20:22.ext) and
+            # Use a copy of the file that is in the repository.
+            $Sayit = "Renaming the file in the working directory and using a oopy of the file that is in the repository."
             if ($bSayit) { [Void]$oSynth.SpeakAsync($Sayit) }
             Write-Warning  $SayIt
+            Rename-Item -Verbose $DestinationPath -NewName "$($DestinationPath.basename)-$(get-date -format "yyyy-MM-ddTHH-mm-ss")$($DestinationPath.extension)"
             Copy-Item -verbose $SourcePath $DestinationDir
-            if ($?) { write-warning " $SayIt completed" -Verbose }
         }
         else {
-            $Sayit = "Using existing file"
-            if ($bSayit) { [Void]$oSynth.SpeakAsync($Sayit) }
+            $Sayit = "Using the file that is already in the working directory."
+            if ($bSayit) {[Void]$oSynth.SpeakAsync($Sayit)}
             Write-Warning  $SayIt
         }
     }
     else {
+        # The file was not in the working folder.
+        # Use a copy of the file that is in the repository.
         Copy-Item -verbose $SourcePath $DestinationDir
-        if ($?) { Write-Warning " Completed" }
     }
 
     Write-Warning  "Information::Launching Quicken by referencing the data file in $DestinationPath"
@@ -274,22 +290,11 @@ Try {
         }
     } until ($ExitCode -eq 0)
 
-    #Bring this windows back to the foreground.
-    function Show-Process($Process, [Switch]$Maximize) {
-        $sig = '
-        [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-        [DllImport("user32.dll")] public static extern int SetForegroundWindow(IntPtr hwnd);
-        '
-
-        if ($Maximize) { $Mode = 3 } else { $Mode = 4 }
-        $type = Add-Type -MemberDefinition $sig -Name WindowAPI -PassThru
-        $hwnd = $process.MainWindowHandle
-        $null = $type::ShowWindowAsync($hwnd, $mode)
-        $null = $type::SetForegroundWindow($hwnd)
-    }
-    Show-Process -Process (get-process -id $pid) -Maximize
-
-    <#     sleep -Seconds 2
+    "Maximize this window."
+    Maximize-ThisWindow -Process (get-process -id $pid)  #Will this work for CORE?
+<#
+    Alternate code to bring this windows back to the foreground.
+    sleep -Seconds 2
     [void][reflection.assembly]::loadwithpartialname("system.windows.forms")
     $altkeys = @(0xA4, 0x09)
     [system.windows.forms.sendkeys]::sendwait('%{TAB}')
@@ -309,12 +314,11 @@ Try {
         # The previous run created a copy (SourcePath.old) in the repository.
         # Remove the copy and create a copy of the current file before replacing it with the working copy.
         # Future enhancement: The .old file should not be discarded until the working copy is successfully moved into the repository.
-        Get-Date
-        remove-item -verbose -Force "$SourcePath.old"
-        Get-Date
-        rename-item -verbose -force $SourcePath "$Sourcepath.old"
-        Get-Date
-        move-Item -verbose $DestinationPath $SourceDir -force
+        "Moving the working file to the Repository - Housekeeping"
+        Get-Date;remove-item -verbose -Force "$SourcePath.old"
+        Get-Date;rename-item -verbose -force $SourcePath "$Sourcepath.old"
+        Get-Date;move-Item -verbose $DestinationPath $SourceDir -force
+        if ($?) {"Moving the working file to the Repository - Completed"}
         write-host  -foregroundColor Yellow "$($Sayit) at $(Get-Date) " # "V2.15.3"
         [console]::beep($ToneGood, 500)
         Write-Warning "INFORMATION:: The updated file in the Repository is $SourcePath"
@@ -330,7 +334,7 @@ Try {
             write-host  -foregroundColor Yellow "$SayIt at $(Get-Date) " # "V2.15.3"
             if ($bSayIt) { $oSynth.Speak($SayIt) }
 
-            if ($psversiontable.psedition -ne "CORE") {
+            if ($PSVersionTable.PSEdition -ne "CORE") {
                 Add-Type -AssemblyName Microsoft.VisualBasic
                 [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($DestinationPath, 'OnlyErrorDialogs', 'SendToRecycleBin')
             }
@@ -358,7 +362,7 @@ Try {
 
 } #end try
 catch {
-    write-warning "catch block begins"
+    write-warning "'Catch' block begins"
     if ($PSVersionTable.PSVersion -like "7*") {
         #get-error
     }
@@ -371,10 +375,10 @@ catch {
     [console]::beep($ToneBad, $ToneDuration)
 
     Read-Host -prompt "This gives you a chance to see what went wrong."
-    write-warning "catch block ends"
+    write-warning "'Catch' block ends"
 }
 Finally {
-    write-warning "Finally block starts"
+    write-warning "'Finally' block starts"
     $SayIt="Completed with {0} errors." -f $error.count
     Write-Warning $SayIt
     If ($bSayIt) {$oSynth.Speak($SayIt)}
@@ -385,9 +389,10 @@ Finally {
         $oSynth.Speak($SayIt)
         $oSynth.Dispose()
     }
-    write-warning "Finally block ends"
+    write-warning "'Finally' block ends"
     Get-History -Verbose
     Stop-Transcript
+    #if ($error.count -ge 1) {Read-Host -prompt "'Enter' to quit"}
     Read-Host -prompt "'Enter' to quit"
     explorer.exe $DestinationDir #spawn file-manager
 }
