@@ -3,6 +3,9 @@
     [System.IO.FileInfo]$FileName,
 
     [Parameter(Mandatory=$false)]
+    [System.IO.FileInfo]$SourceDir =  (Split-Path -Parent -Path "$PSCommandPath"),
+    
+    [Parameter(Mandatory=$false)]
     [System.IO.FileInfo]$DestinationDir = (Join-Path $env:HOMEDRIVE$env:HOMEPATH 'Documents\Quicken'),
 
     [Parameter(Mandatory = $false)]
@@ -112,10 +115,12 @@ Mod 2018-05-24 'Loop on Read-Host
         Added Parameter $DestinationDir
 2020-01-10 FAJ V4.0.3
         Streamlined the function Maximize-ThisWindow and removed 2nd parameter.
-2020-01-18 FAJ V4.1
+2020-01-18 FAJ V4.1.0.1
         If the file is already in the working directory and you don't want to use it
         rename it (append the date and time to the basename) before copying the file from the repository.
-
+2020-01-20 FAJ V4.1.0.2
+        $SoureDir is now an input parameter that defaults to the foler where this command resides; $SourceDir =  (Split-Path -Parent -Path "$PSCommandPath"),
+   
 <#
 This script invokes Quicken and requires 2 arguments on the command line invoking it.
 The first argument is the name of a Quicken data file.
@@ -220,12 +225,9 @@ Try {
     $SayIt = "Using {0}" -f $Filename
     write-host -ForegroundColor yellow $SayIt
     if ($bSayIt) { [Void]$oSynth.SpeakAsync($SayIt) }
-
-    $SourceDir = split-path $MyInvocation.MyCommand.path -Parent
     Write-host -ForegroundColor yellow "The path to the Repository is $SourceDir"
-
     #Now test the SourceDir exists. If it doesn't then exit.
-    if (!(Test-Path $SourceDir)) { read-host "The path to the Repository Workspace $SourceDir is incorrect"; exit }
+    if (! (Test-Path $SourceDir)) { read-host "The path to the Repository Workspace $SourceDir is incorrect"; exit }
 
     #Is the file in the Repository?
     $SourcePath = Join-Path $SourceDir $FileName
@@ -247,7 +249,7 @@ Try {
         Do {
             $MyResponse = Read-host "$SayIt [Y] Yes  [N]  No"
         } until ($MyResponse -like 'y*' -or $MyResponse -like 'n*')
-        
+
         if ( $MyResponse.tolower() -like "n*") {
             # Rename existing file (file.ext -> file-2020-01-18T14:20:22.ext) and
             # Use a copy of the file that is in the repository.
@@ -315,7 +317,7 @@ Try {
         # Remove the copy and create a copy of the current file before replacing it with the working copy.
         # Future enhancement: The .old file should not be discarded until the working copy is successfully moved into the repository.
         "Moving the working file to the Repository - Housekeeping"
-        Get-Date;remove-item -verbose -Force "$SourcePath.old"
+        if (Test-Path "$SourcePath.old") {get-date;remove-item -verbose -Force "$SourcePath.old"}
         Get-Date;rename-item -verbose -force $SourcePath "$Sourcepath.old"
         Get-Date;move-Item -verbose $DestinationPath $SourceDir -force
         if ($?) {"Moving the working file to the Repository - Completed"}
