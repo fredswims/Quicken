@@ -1,10 +1,25 @@
-﻿param ([Parameter(Mandatory = $true,
+﻿<#
+.SYNOPSIS
+    Short description of the script
+.DESCRIPTION
+    Long description of the script
+.EXAMPLE
+    PS C:\\> Get-WhatTimeIsItNow.ps1
+    Explanation of what the example does
+.INPUTS
+    Inputs (if any)
+.OUTPUTS
+    Output (if any)
+.NOTES
+    General notes
+#>
+
+param ([Parameter(Mandatory = $true,
         HelpMessage = "Enter the name of the Quicken data file; e.g., Home.qdf : ")]
     [System.IO.FileInfo]$FileName,
 
     [Parameter(Mandatory=$false)]
     [System.IO.FileInfo]$SourceDir =  (Split-Path -Parent -Path "$PSCommandPath"),
-    
     [Parameter(Mandatory=$false)]
     [System.IO.FileInfo]$DestinationDir = (Join-Path $env:HOMEDRIVE$env:HOMEPATH 'Documents\Quicken'),
 
@@ -35,7 +50,7 @@ or
 
 #>
 if ($ShowDebug) { Set-PSDebug -strict -trace 2 } # I have not tested this
-($ThisVersion = "V3.0.10")
+($ThisVersion = "V4.1.3 2020-03-16")
 $ErrorActionPreference = "Stop" #failing cmdlets will jump to the 'catch' block
 $Error.Clear()
 <#
@@ -120,8 +135,16 @@ Mod 2018-05-24 'Loop on Read-Host
         rename it (append the date and time to the basename) before copying the file from the repository.
 2020-01-20 FAJ V4.1.0.2
         $SoureDir is now an input parameter that defaults to the foler where this command resides; $SourceDir =  (Split-Path -Parent -Path "$PSCommandPath"),
-   
-<#
+2020-03-11 FAJ V4.1.1
+        Load assemblies at the start of the Try block.
+        Show final prompt only if errors occurred.
+        <#
+2020-03-15 FAJ V4.1.2
+        Move file to recycle bin works with Powershell 7.
+        Replaced ($psversiontable.psedition -ne "CORE") with ($IsCoreClr -ne $true)
+2020-03-15 FAJ V4.1.3
+        replaced three lines of [console]::beep(n,m) with single line 'For"
+
 This script invokes Quicken and requires 2 arguments on the command line invoking it.
 The first argument is the name of a Quicken data file.
 The second argument is the a string with indicates if you want to enable text-to-speech prompts; Speak | NoSpeak
@@ -190,20 +213,33 @@ $ToneBad = 100
 $ToneDuration = 500
 
 Try {
+    $sig = '
+        [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+        [DllImport("user32.dll")] public static extern int SetForegroundWindow(IntPtr hwnd);
+        '
+        write-host "Load the Type libraries"
+        $TimeTemp=get-date
+        $type = Add-Type -MemberDefinition $sig -Name WindowAPI -PassThru
+        write-host "Load took" (New-TimeSpan -start $timetemp).totalseconds "seconds"
+        $process=Get-Process -Id $pid
+        $hwnd = $process.MainWindowHandle
+<#
     function Maximize-ThisWindow($Process) {
+        #https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
         $sig = '
         [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         [DllImport("user32.dll")] public static extern int SetForegroundWindow(IntPtr hwnd);
         '
+        #This next line takes a long time to execute
         $type = Add-Type -MemberDefinition $sig -Name WindowAPI -PassThru
         $hwnd = $process.MainWindowHandle
-        $null = $type::ShowWindow($hwnd, 3)
+        $null = $type::ShowWindow($hwnd, 9) #SW_RESTORE 9 Activates and displays the window.
         $null = $type::SetForegroundWindow($hwnd) #puts cursor in windows
     }
     #Maximize-ThisWindow -Process (get-process -id $pid)  #Will this work for CORE?
-
-    if ($speak -and $PSVersiontable.PSEdition -ne "CORE") {
-        [bool]$bSayit = $true
+#>
+    if ($speak -and $IsCoreClr -ne $True) {
+            [bool]$bSayit = $true
         #https://msdn.microsoft.com/en-us/library/system.speech.synthesis.speechsynthesizer(v=vs.110).aspx
         add-type -assemblyname system.speech
         $oSynth = New-Object -TypeName System.Speech.Synthesis.SpeechSynthesizer
@@ -236,7 +272,8 @@ Try {
     }
     else {
         write-warning "The file in the Repository is $SourcePath"
-        get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
+        $FileIn=get-item $SourcePath | Select-Object Fullname, CreationTime, LastWriteTime, LastAccessTime, Length
+        $FileIn | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime,@{ Name = 'Size in Megabytes';  Expression = {$psitem.length/(1Mb)}}
     }
 
     [System.IO.FileInfo]$DestinationPath = Join-Path $DestinationDir $FileName #fullpath to Quicken data file.
@@ -245,7 +282,7 @@ Try {
         $Sayit = "The data file is already in the working folder '$($DestinationDir)'. Do you want to use it? "
         if ($bSayit) {[Void]$oSynth.SpeakAsync($Sayit)}
         Write-Warning  $SayIt
-        get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
+        get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime, @{ Name = 'Size in Megabytes';  Expression = {$psitem.length/(1Mb)}}
         Do {
             $MyResponse = Read-host "$SayIt [Y] Yes  [N]  No"
         } until ($MyResponse -like 'y*' -or $MyResponse -like 'n*')
@@ -270,6 +307,8 @@ Try {
         # Use a copy of the file that is in the repository.
         Copy-Item -verbose $SourcePath $DestinationDir
     }
+    $BeginTime=get-item $DestinationPath | Select-Object Fullname, CreationTime, LastWriteTime, LastAccessTime, Length
+    $BeginTime | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime,@{ Name = 'Size in Megabytes';  Expression = {$psitem.length/(1Mb)}}
 
     Write-Warning  "Information::Launching Quicken by referencing the data file in $DestinationPath"
     $ExitCode = 1
@@ -284,7 +323,7 @@ Try {
         write-host "LastExitCode $ExitCode"
         if ($ExitCode -ne 0) {
             $Sayit = "Oops, Quicken stopped with code $ExitCode Do you want to restart Quicken"
-            [Void]$oSynth.SpeakAsync($SayIt)
+            if ($bSayit){[Void]$oSynth.SpeakAsync($SayIt)}
             write-host -ForegroundColor "Red" $SayIt
             Do { $MyResponse = Read-Host "$SayIt [Y] Yes  [N]  No" }
             until ($MyResponse -like 'y*' -or $MyResponse -like 'n*')
@@ -292,8 +331,13 @@ Try {
         }
     } until ($ExitCode -eq 0)
 
-    "Maximize this window."
-    Maximize-ThisWindow -Process (get-process -id $pid)  #Will this work for CORE?
+    "Maximize this window and give it the focus"
+    # Originally the function was called but it was slow.
+    # Now the methods are called inline.
+    #Maximize-ThisWindow -Process (get-process -id $pid)  #Will this work for CORE?
+    
+    $null = $type::ShowWindowAsync($hwnd, 3) #SW_RESTORE 9 Activates and displays the window.
+    $null = $type::SetForegroundWindow($hwnd) #puts cursor in windows
 <#
     Alternate code to bring this windows back to the foreground.
     sleep -Seconds 2
@@ -303,8 +347,13 @@ Try {
  #>
     #At this point Quicken has exited. Now decide what to do with the data file we where working with.
     write-warning "INFORMATION::The file in the runtime workspace is $DestinationPath"
-    get-item $DestinationPath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
-
+    $DoneTime=get-item $DestinationPath | Select-Object Fullname, CreationTime, LastWriteTime, LastAccessTime,Length
+    $DoneTime | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime,@{ Name = 'Size in Megabytes';  Expression = {$psitem.length/(1Mb)}}
+    [timespan]$ElapsedTime=($DoneTime.LastWriteTime -$BeginTime.LastAccessTime)
+    "You worked on this file for:"
+    $ElapsedTime|format-list *
+    $NewSize=($DoneTime.Length - $BeginTime.Length)/1Mb
+    "File increased by {0} Mb" -f $NewSize
     $SayIt = "Do you want to move this file to the repository?"
     if ($bSayit) { [void]$oSynth.SpeakAsync($SayIt) }
     Do { $MyResponse = Read-host "$SayIt [Y] Yes  [N]  No" }
@@ -324,7 +373,7 @@ Try {
         write-host  -foregroundColor Yellow "$($Sayit) at $(Get-Date) " # "V2.15.3"
         [console]::beep($ToneGood, 500)
         Write-Warning "INFORMATION:: The updated file in the Repository is $SourcePath"
-        get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime
+        get-item $SourcePath | format-list Fullname, CreationTime, LastWriteTime, LastAccessTime,@{ Name = 'Size in Megabytes';  Expression = {$psitem.length/(1Mb)}}
     }
     else { #chose to keep the working file in the repository.
         $SayIt = "Do you want to move $($Filename) to the recycle-bin?"
@@ -335,17 +384,12 @@ Try {
             $SayIt = "MOVING $($Filename) to the recycle-bin  "
             write-host  -foregroundColor Yellow "$SayIt at $(Get-Date) " # "V2.15.3"
             if ($bSayIt) { $oSynth.Speak($SayIt) }
-
-            if ($PSVersionTable.PSEdition -ne "CORE") {
-                Add-Type -AssemblyName Microsoft.VisualBasic
-                [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($DestinationPath, 'OnlyErrorDialogs', 'SendToRecycleBin')
-            }
-            else {
-                remove-item -verbose $DestinationPath
-            }
+            Add-Type -AssemblyName Microsoft.VisualBasic
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($DestinationPath, 'OnlyErrorDialogs', 'SendToRecycleBin')
+            if ($?) {Write-Warning "$($DestinationPath) file sent to recycle bin"} else {remove-item $DestinationPath}
             [console]::beep($ToneGood, $ToneDuration)
         }
-        else { #chose to keep the working file stays in the runtime workspace.
+        else { #keep the working file stays in the runtime workspace.
             $SayIt = "Leaving the working file"
             if ($bSayIt) { $oSynth.Speak($SayIt) }
             write-host  -foregroundColor Yellow $SayIt
@@ -365,16 +409,12 @@ Try {
 } #end try
 catch {
     write-warning "'Catch' block begins"
-    if ($PSVersionTable.PSVersion -like "7*") {
-        #get-error
-    }
+    if ($IsCoreCLR) {get-error}
     $error[0]
     $Sayit = "Something went wrong!"
     write-host -ForegroundColor Red $SayIt
     if ($bSayIt) { $oSynth.Speak($SayIt) }
-    [console]::beep($ToneBad, $ToneDuration)
-    [console]::beep($ToneBad, $ToneDuration)
-    [console]::beep($ToneBad, $ToneDuration)
+    for ($i=1;$i -le 3;$i++ ){[console]::beep($ToneBad, $ToneDuration)}
 
     Read-Host -prompt "This gives you a chance to see what went wrong."
     write-warning "'Catch' block ends"
@@ -395,7 +435,7 @@ Finally {
     Get-History -Verbose
     Stop-Transcript
     #if ($error.count -ge 1) {Read-Host -prompt "'Enter' to quit"}
-    Read-Host -prompt "'Enter' to quit"
+    if ($error.count -gt 0){Read-Host -prompt "'Enter' to quit"}
     explorer.exe $DestinationDir #spawn file-manager
 }
 
